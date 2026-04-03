@@ -1,9 +1,10 @@
 // ── DOM ──
 const container = document.getElementById('drumContainer');
-const itemsInput = document.getElementById('itemsInput');
-const applyBtn = document.getElementById('applyBtn');
+const itemsList = document.getElementById('itemsList');
+const newItemInput = document.getElementById('newItemInput');
+const addBtn = document.getElementById('addBtn');
+const resetBtn = document.getElementById('resetBtn');
 const resultDiv = document.getElementById('result');
-const statusList = document.getElementById('statusList');
 const modal = document.getElementById('modal');
 const modalName = document.getElementById('modalName');
 const modalOkBtn = document.getElementById('modalOkBtn');
@@ -18,6 +19,16 @@ const PALETTE = [
 
 // ── Persistence (localStorage) ──
 const STORAGE_KEY = 'barraban_used';
+const ITEMS_KEY = 'barraban_items';
+
+const DEFAULT_ITEMS = [
+  'Алексей Галкин',
+  'Артем Филиппов',
+  'Кирилл Лобанов',
+  'Николай Михалаки',
+  'Сергей Абкарян',
+  'Сергей Бубенцов',
+];
 
 function saveState() {
   try {
@@ -33,9 +44,23 @@ function loadState() {
   } catch { return new Set(); }
 }
 
+function saveItems() {
+  try {
+    localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+  } catch { /* ignore */ }
+}
+
+function loadStoredItems() {
+  try {
+    const raw = localStorage.getItem(ITEMS_KEY);
+    if (!raw) return [...DEFAULT_ITEMS];
+    return JSON.parse(raw);
+  } catch { return [...DEFAULT_ITEMS]; }
+}
+
 // ── State ──
-let items = [];
-let colors = [];
+let items = loadStoredItems();
+let colors = items.map((_, i) => PALETTE[i % PALETTE.length]);
 let usedSet = loadState();   // winners already picked this week
 let activeItems = [];         // items not yet used (for drum sectors)
 let activeColors = [];
@@ -362,35 +387,58 @@ function closeModal() {
 
 // ── Status list ──
 function updateStatusList() {
-  statusList.innerHTML = '';
-  for (const item of items) {
+  itemsList.innerHTML = '';
+  items.forEach((item, i) => {
     const li = document.createElement('li');
-    li.textContent = item;
-    if (usedSet.has(item)) {
-      li.classList.add('used');
-    }
-    statusList.appendChild(li);
-  }
+    if (usedSet.has(item)) li.classList.add('used');
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'item-name';
+    nameSpan.textContent = item;
+
+    const checkBtn = document.createElement('button');
+    checkBtn.className = 'item-check' + (usedSet.has(item) ? ' checked' : '');
+    checkBtn.textContent = '✓';
+    checkBtn.title = usedSet.has(item) ? 'Снять отметку' : 'Отметить как выпавшего';
+    checkBtn.addEventListener('click', () => {
+      if (usedSet.has(item)) {
+        usedSet.delete(item);
+      } else {
+        usedSet.add(item);
+      }
+      saveState();
+      buildDrum();
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'item-delete';
+    delBtn.textContent = '×';
+    delBtn.title = 'Удалить';
+    delBtn.addEventListener('click', () => {
+      items.splice(i, 1);
+      colors = items.map((_, idx) => PALETTE[idx % PALETTE.length]);
+      usedSet.delete(item);
+      saveItems();
+      saveState();
+      buildDrum();
+    });
+
+    li.appendChild(nameSpan);
+    li.appendChild(checkBtn);
+    li.appendChild(delBtn);
+    itemsList.appendChild(li);
+  });
 }
 
-// ── Parse items ──
-function loadItems() {
-  const text = itemsInput.value.trim();
-  if (!text) return;
-  items = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+// ── Add item ──
+function addItem() {
+  const name = newItemInput.value.trim();
+  if (!name) return;
+  items.push(name);
   colors = items.map((_, i) => PALETTE[i % PALETTE.length]);
-  angularVelocity = 0;
-  spinning = false;
-  decelerating = false;
-  resultDiv.textContent = '';
-  resultDiv.classList.remove('show');
+  saveItems();
+  newItemInput.value = '';
   buildDrum();
-}
-
-function resetAndApply() {
-  usedSet.clear();
-  saveState();
-  loadItems();
 }
 
 // ── Resize ──
@@ -449,7 +497,13 @@ renderer.domElement.addEventListener('touchend', (e) => {
   }
 }, { passive: false });
 
-applyBtn.addEventListener('click', resetAndApply);
+addBtn.addEventListener('click', addItem);
+newItemInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addItem(); });
+resetBtn.addEventListener('click', () => {
+  usedSet.clear();
+  saveState();
+  buildDrum();
+});
 modalOkBtn.addEventListener('click', closeModal);
 window.addEventListener('resize', onResize);
 
@@ -492,6 +546,6 @@ function animate() {
 }
 
 // ── Init ──
-loadItems();
+buildDrum();
 onResize();
 animate();

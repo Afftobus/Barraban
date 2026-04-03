@@ -18,14 +18,12 @@
   <div class="app">
     <div class="sidebar">
       <h2>Список</h2>
-      <textarea id="itemsInput" placeholder="Введите пункты, каждый с новой строки...">Алексей Галкин
-Артем Филиппов
-Кирилл Лобанов
-Николай Михалаки
-Сергей Абкарян
-Сергей Бубенцов</textarea>
-      <button id="applyBtn">Применить</button>
-      <ul id="statusList"></ul>
+      <ul id="itemsList"></ul>
+      <div class="add-row">
+        <input type="text" id="newItemInput" placeholder="Новый участник...">
+        <button id="addBtn">+</button>
+      </div>
+      <button id="resetBtn">Сбросить</button>
       <div id="result" class="result"></div>
     </div>
     <div class="drum-container" id="drumContainer">
