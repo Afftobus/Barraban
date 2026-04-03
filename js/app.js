@@ -22,12 +22,7 @@ const STORAGE_KEY = 'barraban_used';
 const ITEMS_KEY = 'barraban_items';
 
 const DEFAULT_ITEMS = [
-  'Алексей Галкин',
-  'Артем Филиппов',
-  'Кирилл Лобанов',
-  'Николай Михалаки',
-  'Сергей Абкарян',
-  'Сергей Бубенцов',
+  'Item 0',
 ];
 
 function saveState() {
