@@ -58,6 +58,73 @@ function loadStoredItems() {
   } catch { return [...DEFAULT_ITEMS]; }
 }
 
+// ── Audio ──
+let audioCtx = null;
+let lastClickTime = 0;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playClick() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  if (now - lastClickTime < 0.04) return; // не чаще 40 мс
+  lastClickTime = now;
+
+  const bufSize = Math.floor(audioCtx.sampleRate * 0.014);
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 2);
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 2200;
+  filter.Q.value = 0.8;
+
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.28;
+
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  src.start(now);
+}
+
+function _playNote(freq, startTime, duration, gainVal) {
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.001, startTime);
+  g.gain.linearRampToValueAtTime(gainVal, startTime + 0.025);
+  g.gain.setValueAtTime(gainVal, startTime + duration * 0.55);
+  g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  osc.connect(g);
+  g.connect(audioCtx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.05);
+}
+
+function playTada() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  // Короткая затравка: G4
+  _playNote(392.00, t,        0.13, 0.22);
+  // Аккорд C5+E5+G5+C6
+  _playNote(523.25, t + 0.14, 0.75, 0.24);
+  _playNote(659.25, t + 0.14, 0.75, 0.20);
+  _playNote(783.99, t + 0.14, 0.75, 0.18);
+  _playNote(1046.5, t + 0.14, 0.75, 0.14);
+}
+
 // ── State ──
 let items = loadStoredItems();
 let colors = items.map((_, i) => PALETTE[i % PALETTE.length]);
@@ -71,6 +138,7 @@ let isPressed = false;
 let decelerating = false;
 let spinning = false;
 let pendingWinner = null;     // winner waiting for modal OK
+let lastSectorIndex = -1;
 
 // ── Physics ──
 const ACCELERATION = 20;
@@ -202,6 +270,7 @@ function createBottomFaceTexture() {
 }
 
 function buildDrum() {
+  lastSectorIndex = -1;
   // Remove old drum
   if (drumMesh) {
     scene.remove(drumMesh);
@@ -372,6 +441,7 @@ function showWinnerModal(name) {
   pendingWinner = name;
   modalName.textContent = name;
   modal.classList.remove('hidden');
+  // playTada();
 }
 
 function closeModal() {
@@ -455,6 +525,7 @@ renderer.domElement.addEventListener('mousedown', (e) => {
   if (activeItems.length === 0) return;
   if (spinning && decelerating) return;
   if (!isOnDrum(e)) return;
+  ensureAudio();
   isPressed = true;
   resultDiv.textContent = '';
   resultDiv.classList.remove('show');
@@ -482,6 +553,7 @@ renderer.domElement.addEventListener('touchstart', (e) => {
   e.preventDefault();
   if (activeItems.length === 0) return;
   if (spinning && decelerating) return;
+  ensureAudio();
   isPressed = true;
   resultDiv.textContent = '';
   resultDiv.classList.remove('show');
@@ -540,6 +612,17 @@ function animate() {
   }
   if (drumMesh) {
     drumMesh.rotation.y += angularVelocity * dt;
+
+    if (spinning && activeItems.length > 0) {
+      const n = activeItems.length;
+      const sliceAngle = (2 * Math.PI) / n;
+      const norm = ((drumMesh.rotation.y % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      const sectorIdx = Math.floor(norm / sliceAngle) % n;
+      if (lastSectorIndex !== -1 && sectorIdx !== lastSectorIndex) {
+        playClick();
+      }
+      lastSectorIndex = sectorIdx;
+    }
   }
 
   renderer.render(scene, camera);
