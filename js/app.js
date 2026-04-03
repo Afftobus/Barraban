@@ -98,31 +98,11 @@ function playClick() {
   src.start(now);
 }
 
-function _playNote(freq, startTime, duration, gainVal) {
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.value = freq;
-  g.gain.setValueAtTime(0.001, startTime);
-  g.gain.linearRampToValueAtTime(gainVal, startTime + 0.025);
-  g.gain.setValueAtTime(gainVal, startTime + duration * 0.55);
-  g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-  osc.connect(g);
-  g.connect(audioCtx.destination);
-  osc.start(startTime);
-  osc.stop(startTime + duration + 0.05);
-}
+const selectedAudio = new Audio('sound/selected.wav');
 
 function playTada() {
-  if (!audioCtx) return;
-  const t = audioCtx.currentTime;
-  // Короткая затравка: G4
-  _playNote(392.00, t,        0.13, 0.22);
-  // Аккорд C5+E5+G5+C6
-  _playNote(523.25, t + 0.14, 0.75, 0.24);
-  _playNote(659.25, t + 0.14, 0.75, 0.20);
-  _playNote(783.99, t + 0.14, 0.75, 0.18);
-  _playNote(1046.5, t + 0.14, 0.75, 0.14);
+  selectedAudio.currentTime = 0;
+  selectedAudio.play().catch(() => {});
 }
 
 // ── State ──
@@ -441,7 +421,7 @@ function showWinnerModal(name) {
   pendingWinner = name;
   modalName.textContent = name;
   modal.classList.remove('hidden');
-  // playTada();
+  playTada();
 }
 
 function closeModal() {
